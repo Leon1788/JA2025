@@ -16,6 +16,7 @@ class_name MovementComponent extends IComponent
 var is_moving: bool = false
 var current_path: Array = []
 var current_position_index: int = 0
+var current_tween: Tween = null  # NEU: Tween-Referenz speichern
 
 # ============================================================================
 # PROPERTIES - MOVEMENT CONFIG
@@ -63,7 +64,7 @@ func move_to(target_world_pos: Vector3) -> bool:
 		return false
 	
 	# Hol SoldierState für AP-Check
-	var soldier_state: SoldierState = entity.get_component("SoldierState")
+	var soldier_state: SoldierState = entity.get_component("SoldierState") as SoldierState
 	if soldier_state == null:
 		_report_error("SoldierState component not found!")
 		return false
@@ -124,17 +125,25 @@ func _animate_movement() -> void:
 		var target_pos = current_path[i]
 		current_position_index = i
 		
+		# Kill previous tween (für Sicherheit)
+		if current_tween:
+			current_tween.kill()
+		
 		# Tweene Position
-		await create_tween().tween_property(
+		current_tween = create_tween()
+		current_tween.tween_property(
 			entity,
 			"global_position",
 			target_pos,
 			movement_speed
-		).finished
+		)
 		
-		movement_progress.emit(i, current_path.size())
+		await current_tween.finished
+		
+		if is_moving:  # Prüfe nochmal ob nicht unterbrochen
+			movement_progress.emit(i, current_path.size())
 	
-	# Bewegung fertig
+	# Bewegung fertig oder unterbrochen
 	is_moving = false
 	var final_pos = entity.global_position
 	movement_completed.emit(final_pos)
@@ -147,8 +156,13 @@ func stop_movement() -> void:
 		return
 	
 	is_moving = false
-	# Tween wird automatisch gestoppt wenn is_moving = false
-	_debug_log("Movement stopped")
+	
+	# WICHTIG: Kill das aktuelle Tween! (War das Fehler vorher)
+	if current_tween:
+		current_tween.kill()
+		current_tween = null
+	
+	_debug_log("Movement stopped at position %v" % entity.global_position)
 
 ## Setze Position direkt (für Teleportation, etc.)
 func set_position(new_pos: Vector3) -> void:
@@ -161,7 +175,7 @@ func set_position(new_pos: Vector3) -> void:
 
 ## Berechne AP-Kosten für einen Ziel-Punkt (ohne zu bewegen)
 func calculate_movement_cost(target_pos: Vector3) -> int:
-	var soldier_state: SoldierState = entity.get_component("SoldierState")
+	var soldier_state: SoldierState = entity.get_component("SoldierState") as SoldierState
 	if soldier_state == null:
 		return -1
 	
@@ -179,7 +193,7 @@ func calculate_movement_cost(target_pos: Vector3) -> int:
 
 ## Gib voraussichtlichen Pfad zurück (für UI Preview)
 func get_preview_path(target_pos: Vector3) -> Array:
-	var soldier_state: SoldierState = entity.get_component("SoldierState")
+	var soldier_state: SoldierState = entity.get_component("SoldierState") as SoldierState
 	if soldier_state == null:
 		return []
 	
@@ -196,12 +210,12 @@ func is_target_reachable(target_pos: Vector3) -> bool:
 	if cost < 0:
 		return false
 	
-	var soldier_state: SoldierState = entity.get_component("SoldierState")
+	var soldier_state: SoldierState = entity.get_component("SoldierState") as SoldierState
 	return soldier_state.can_afford_ap(cost)
 
 ## Gib Bewegungs-Range zurück (max Entfernung mit aktuellem AP)
 func get_movement_range() -> float:
-	var soldier_state: SoldierState = entity.get_component("SoldierState")
+	var soldier_state: SoldierState = entity.get_component("SoldierState") as SoldierState
 	if soldier_state == null:
 		return 0.0
 	
@@ -220,7 +234,7 @@ func on_enable() -> void:
 	_debug_log("MovementComponent enabled")
 
 func on_disable() -> void:
-	stop_movement()
+	stop_movement()  # Kill Tween wenn deaktiviert
 	super.on_disable()
 	_debug_log("MovementComponent disabled")
 

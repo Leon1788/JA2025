@@ -17,6 +17,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
+DebugLogger="*res://Architecture/DebugLogger.gd"
 GameController="*res://Managers/GameController.gd"
 TimeManager="*res://Managers/TimeManager.gd"
 DataManager="*res://Managers/DataManager.gd"

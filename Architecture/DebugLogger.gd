@@ -17,7 +17,7 @@
 ## - Alle Manager/Components nutzen die gleiche Quelle
 ## - DRY Principle (Don't Repeat Yourself)
 
-class_name DebugLogger
+extends Node
 
 # ============================================================================
 # STANDARD DEBUG LOGGING

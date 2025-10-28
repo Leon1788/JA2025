@@ -150,6 +150,30 @@ func unpause_game() -> void:
 	if current_event_bus:
 		current_event_bus.game_paused.emit(false)
 
+## Toggle Pause State (NEU HINZUGEFÜGT - War fehlend!)
+func toggle_pause() -> void:
+	if is_game_paused:
+		unpause_game()
+	else:
+		pause_game()
+
+# ============================================================================
+# STATE QUERY FUNCTIONS (NEU HINZUGEFÜGT - Tests brauchten das!)
+# ============================================================================
+
+## Gib aktuellen Game State zurück
+func get_current_game_state() -> int:
+	return current_game_state
+
+## Gib Game State Namen zurück (für Debug)
+func get_game_state_name() -> String:
+	var state_names = GameConstants.GAME_STATE
+	if current_game_state in state_names.values():
+		for key in state_names.keys():
+			if state_names[key] == current_game_state:
+				return key
+	return "UNKNOWN"
+
 # ============================================================================
 # INPUT HANDLING
 # ============================================================================

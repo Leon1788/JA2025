@@ -101,6 +101,10 @@ func _apply_save_data(save_data: Dictionary) -> void:
 # SAVE FILE MANAGEMENT
 # ============================================================================
 
+## Gib alle verfügbaren Save-Slots zurück
+func get_save_slots() -> Array:
+	return get_save_files()
+
 func get_save_files() -> Array:
 	var files: Array = []
 	var dir = DirAccess.open(save_directory)
