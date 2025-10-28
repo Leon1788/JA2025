@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="JA2025"
-run/main_scene="uid://dqom5lx3cwp7u"
+run/main_scene="uid://r2y244jqhtp"
 config/features=PackedStringArray("4.4", "Forward Plus")
 config/icon="res://icon.svg"
 

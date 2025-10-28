@@ -4,7 +4,7 @@
 ## Eine Entity ist ein Container für Components
 ## Alle aktiven Spielobjekte sind Entities (Merc, Enemy, NPC, etc.)
 ##
-## Architektur:
+## ARCHITEKTUR:
 ##   Entity (erbt von IEntity)
 ##   ├── SoldierState (IComponent)
 ##   ├── MovementComponent (IComponent)
@@ -59,7 +59,7 @@ func _ready() -> void:
 	is_active = false
 	_disable_all_components()
 	
-	_debug_log("Entity ready with %d components" % components.size())
+	DebugLogger.log(self.name, "Entity ready with %d components" % components.size())
 
 func _process(delta: float) -> void:
 	pass
@@ -77,15 +77,17 @@ func _gather_components() -> void:
 			components[child.name] = child
 			component_added.emit(child.name)
 	
-	_debug_log("Gathered %d components" % components.size())
+	DebugLogger.log(self.name, "Gathered %d components" % components.size())
 
 ## Gib einen Component by Name zurück
+## WICHTIG: Returnt NullComponent statt null wenn nicht gefunden!
 ## Verwendung: var state = entity.get_component("SoldierState")
 func get_component(component_name: String) -> IComponent:
 	var component = components.get(component_name, null)
 	
 	if component == null:
 		_report_warning("Component '%s' nicht gefunden auf Entity '%s'" % [component_name, self.name])
+		return NullComponent.new()  # ← Null-Object Pattern
 	
 	return component
 
@@ -97,7 +99,7 @@ func get_component_by_type(component_type: String) -> IComponent:
 			return component
 	
 	_report_warning("Component vom Typ '%s' nicht gefunden" % component_type)
-	return null
+	return NullComponent.new()  # ← Null-Object Pattern
 
 ## Prüfe ob ein Component existiert
 func has_component(component_name: String) -> bool:
@@ -110,30 +112,15 @@ func add_component(component: IComponent) -> void:
 		_report_warning("Component '%s' existiert bereits!" % component.name)
 		return
 	
-	add_child(component)
 	components[component.name] = component
 	component_added.emit(component.name)
-	
-	# Wenn Entity aktiv ist, enable den neuen Component sofort
-	if is_active:
-		component.on_enable()
-
-## Entferne einen Component
-func remove_component(component_name: String) -> void:
-	if not has_component(component_name):
-		_report_warning("Component '%s' nicht gefunden!" % component_name)
-		return
-	
-	var component = components[component_name]
-	component.on_disable()
-	component.queue_free()
-	components.erase(component_name)
+	DebugLogger.log(self.name, "Component added: %s" % component.name)
 
 # ============================================================================
-# ENTITY ACTIVATION
+# ENTITY LIFECYCLE
 # ============================================================================
 
-## Aktiviere diese Entity (z.B. wenn sie in Kampf kommt)
+## Aktiviere diese Entity (wenn sie in Kampf kommt)
 func activate() -> void:
 	if is_active:
 		_report_warning("Entity ist bereits aktiv!")
@@ -143,7 +130,7 @@ func activate() -> void:
 	_enable_all_components()
 	entity_activated.emit()
 	
-	_debug_log("Entity activated")
+	DebugLogger.log(self.name, "Entity activated")
 
 ## Deaktiviere diese Entity
 func deactivate() -> void:
@@ -155,7 +142,7 @@ func deactivate() -> void:
 	_disable_all_components()
 	entity_deactivated.emit()
 	
-	_debug_log("Entity deactivated")
+	DebugLogger.log(self.name, "Entity deactivated")
 
 ## Enablet alle Components
 func _enable_all_components() -> void:
@@ -204,24 +191,27 @@ func get_debug_info() -> String:
 func die() -> void:
 	deactivate()
 	entity_died.emit()
-	_debug_log("Entity died")
+	DebugLogger.log(self.name, "Entity died")
 	
 	# Optional: Fade-out Animation hier, dann queue_free()
 	queue_free()
 
 # ============================================================================
-# ERROR HANDLING
+# ERROR HANDLING (REFAKTORIERT: Nutzt DebugLogger)
 # ============================================================================
 
 func _report_error(message: String) -> void:
-	push_error("[Entity %s] %s" % [self.name, message])
+	var full_message = "[Entity %s] %s" % [self.name, message]
+	push_error(full_message)
+	DebugLogger.error(self.name, full_message)
 
 func _report_warning(message: String) -> void:
-	push_warning("[Entity %s] %s" % [self.name, message])
+	var full_message = "[Entity %s] %s" % [self.name, message]
+	push_warning(full_message)
+	DebugLogger.warn(self.name, full_message)
 
 func _debug_log(message: String) -> void:
-	if GameConstants.DEBUG_ENABLED:
-		print("[Entity %s] %s" % [self.name, message])
+	DebugLogger.log(self.name, message)
 
 # ============================================================================
 # HELPER: COMPONENT SHORTCUTS (optional)

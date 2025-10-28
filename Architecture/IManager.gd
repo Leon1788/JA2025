@@ -27,8 +27,7 @@ func _ready() -> void:
 	set_process(true)
 	set_physics_process(false)
 	
-	if GameConstants.DEBUG_ENABLED:
-		print("[%s] Manager initialized" % self.name)
+	DebugLogger.log(self.name, "Manager initialized")
 
 ## Wird aufgerufen in jedem Frame
 ## Override für regelmäßige Updates (z.B. Zeit-Ticks)
@@ -43,40 +42,40 @@ func _process(delta: float) -> void:
 ## z.B. wenn eine neue Szene geladen wird
 func on_manager_activate() -> void:
 	set_process(true)
-	if GameConstants.DEBUG_ENABLED:
-		print("[%s] Manager activated" % self.name)
+	DebugLogger.log(self.name, "Manager activated")
 
 ## Wird aufgerufen, wenn der Manager "deaktiviert" wird
 ## z.B. wenn das Spiel pausiert wird oder Szene wechselt
 func on_manager_deactivate() -> void:
 	set_process(false)
-	if GameConstants.DEBUG_ENABLED:
-		print("[%s] Manager deactivated" % self.name)
+	DebugLogger.log(self.name, "Manager deactivated")
 
 ## Wird aufgerufen, wenn das Spiel neu startet
 ## Setzt den Manager in den Initial-Zustand zurück
 func on_game_reset() -> void:
-	if GameConstants.DEBUG_ENABLED:
-		print("[%s] Manager reset" % self.name)
+	DebugLogger.log(self.name, "Manager reset")
 
 # ============================================================================
-# ERROR HANDLING
+# ERROR HANDLING (REFAKTORIERT: Nutzt DebugLogger)
 # ============================================================================
 
 ## Zentrale Error-Handling Methode
 ## Verwendung: _report_error("Could not load data")
 func _report_error(message: String) -> void:
-	push_error("[%s] %s" % [self.name, message])
+	var full_message = "[%s] %s" % [self.name, message]
+	push_error(full_message)
 	error_occurred.emit(message)
+	DebugLogger.error(self.name, full_message)
 
 ## Zentrale Warning-Methode
 func _report_warning(message: String) -> void:
-	push_warning("[%s] %s" % [self.name, message])
+	var full_message = "[%s] %s" % [self.name, message]
+	push_warning(full_message)
+	DebugLogger.warn(self.name, full_message)
 
-## Zentrale Log-Methode (nur wenn DEBUG enabled)
+## Zentrale Log-Methode (nutzt DebugLogger - REFAKTORIERT)
 func _debug_log(message: String) -> void:
-	if GameConstants.DEBUG_ENABLED:
-		print("[%s] %s" % [self.name, message])
+	DebugLogger.log(self.name, message)
 
 # ============================================================================
 # HELPER FUNCTIONS

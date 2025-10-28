@@ -2,9 +2,9 @@
 ## Base Class für alle Components
 ## 
 ## Components sind wiederverwendbare Funktionalitäts-Module
-## Sie werden an Entities (wie MercNode) angehängt
+## Sie werden an Entities (wie MercEntity) angehängt
 ## 
-## Architektur:
+## ARCHITEKTUR:
 ##   Entity (MercEntity)
 ##   ├── Component 1 (SoldierState)
 ##   ├── Component 2 (MovementComponent)
@@ -56,9 +56,9 @@ func _ready() -> void:
 	is_enabled = false
 	set_process(false)
 	
-	_debug_log("Component ready, parent entity: %s" % entity.name)
+	DebugLogger.log(self.name, "Component ready, parent entity: %s" % entity.name)
 
-# Wird in jedem Frame aufgerufen (wenn enabled)
+## Wird in jedem Frame aufgerufen (wenn enabled)
 func _process(delta: float) -> void:
 	pass
 
@@ -72,7 +72,7 @@ func on_enable() -> void:
 	is_enabled = true
 	set_process(true)
 	component_enabled.emit()
-	_debug_log("Component enabled")
+	DebugLogger.log(self.name, "Component enabled")
 
 ## Wird aufgerufen wenn die Entity deaktiviert wird
 ## Override in Sub-Klassen
@@ -80,10 +80,10 @@ func on_disable() -> void:
 	is_enabled = false
 	set_process(false)
 	component_disabled.emit()
-	_debug_log("Component disabled")
+	DebugLogger.log(self.name, "Component disabled")
 
 # ============================================================================
-# ERROR HANDLING
+# ERROR HANDLING (USING DebugLogger)
 # ============================================================================
 
 ## Zentrale Error-Handling Methode
@@ -91,15 +91,17 @@ func _report_error(message: String) -> void:
 	var full_message = "[%s.%s] %s" % [entity.name if entity else "Unknown", self.name, message]
 	push_error(full_message)
 	component_error.emit(message)
+	DebugLogger.error(self.name, full_message)
 
 ## Zentrale Warning-Methode
 func _report_warning(message: String) -> void:
-	push_warning("[%s.%s] %s" % [entity.name if entity else "Unknown", self.name, message])
+	var full_message = "[%s.%s] %s" % [entity.name if entity else "Unknown", self.name, message]
+	push_warning(full_message)
+	DebugLogger.warn(self.name, full_message)
 
-## Zentrale Debug-Log Methode
+## Zentrale Debug-Log Methode (REFAKTORIERT: Nutzt DebugLogger)
 func _debug_log(message: String) -> void:
-	if GameConstants.DEBUG_ENABLED:
-		print("[%s.%s] %s" % [entity.name if entity else "Unknown", self.name, message])
+	DebugLogger.log(self.name, message)
 
 # ============================================================================
 # HELPER FUNCTIONS
@@ -117,12 +119,18 @@ func is_component_enabled() -> bool:
 
 ## Gib einen anderen Component von der gleichen Entity zurück
 ## Verwendung: var combat = get_sibling_component("CombatComponent") as CombatComponent
+## WICHTIG: Returnt NullComponent statt null wenn nicht gefunden!
 func get_sibling_component(component_name: String) -> IComponent:
 	if entity == null:
 		_report_error("Keine Entity gefunden!")
-		return null
+		return NullComponent.new()
 	
-	return entity.get_component(component_name)
+	var component = entity.get_component(component_name)
+	if component == null:
+		_report_warning("Sibling component '%s' nicht gefunden" % component_name)
+		return NullComponent.new()
+	
+	return component
 
 ## Gib einen Child-Node von dieser Entity zurück (z.B. für AnimationPlayer)
 func get_entity_child(node_name: String) -> Node:
@@ -130,4 +138,8 @@ func get_entity_child(node_name: String) -> Node:
 		_report_error("Keine Entity gefunden!")
 		return null
 	
-	return entity.get_node_or_null(node_name)
+	var child = entity.get_node_or_null(node_name)
+	if child == null:
+		_report_warning("Child node '%s' nicht gefunden" % node_name)
+	
+	return child

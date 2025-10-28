@@ -16,15 +16,6 @@ size = Vector3(0.6, 1.8, 0.6)
 
 [node name="MercEntity" type="Node3D"]
 script = ExtResource("1_8k0p0")
-merc_id = "merc_unknown"
-merc_name = "Unknown"
-faction = "player"
-agility = 50
-marksmanship = 50
-wisdom = 50
-strength = 50
-armor_value = 0
-armor_type = "medium"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
 mesh = SubResource("BoxMesh_1")

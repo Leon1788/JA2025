@@ -1,6 +1,7 @@
 # res://Managers/PersistenceManager.gd
 ## Zentrale Save/Load-Verwaltung
-## KORRIGIERT: make_abs_absolute() -> make_dir_absolute()
+## 
+## REFAKTORIERT: Alle _debug_log() → DebugLogger.log()
 
 extends IManager
 
@@ -14,17 +15,17 @@ func _ready() -> void:
 	
 	# Erstelle Save-Verzeichnis falls nicht vorhanden
 	if not DirAccess.dir_exists_absolute(save_directory):
-		DirAccess.make_dir_absolute(save_directory)  # KORRIGIERT!
-		_debug_log("Created save directory: %s" % save_directory)
+		DirAccess.make_dir_absolute(save_directory)
+		DebugLogger.log(self.name, "Created save directory: %s" % save_directory)
 	
-	_debug_log("PersistenceManager initialized")
+	DebugLogger.log(self.name, "PersistenceManager initialized")
 
 # ============================================================================
 # SAVE SYSTEM
 # ============================================================================
 
 func save_game(save_file: String) -> bool:
-	_debug_log("Saving game to: %s" % save_file)
+	DebugLogger.log(self.name, "Saving game to: %s" % save_file)
 	
 	var save_data = _gather_save_data()
 	var json_string = JSON.stringify(save_data)
@@ -39,11 +40,11 @@ func save_game(save_file: String) -> bool:
 	file.store_string(json_string)
 	current_save_data = save_data
 	
-	_debug_log("Game saved successfully to: %s" % file_path)
+	DebugLogger.log(self.name, "Game saved successfully to: %s" % file_path)
 	return true
 
 func load_game(save_file: String) -> bool:
-	_debug_log("Loading game from: %s" % save_file)
+	DebugLogger.log(self.name, "Loading game from: %s" % save_file)
 	
 	var file_path = save_directory + save_file
 	
@@ -68,7 +69,7 @@ func load_game(save_file: String) -> bool:
 	_apply_save_data(save_data)
 	current_save_data = save_data
 	
-	_debug_log("Game loaded successfully from: %s" % file_path)
+	DebugLogger.log(self.name, "Game loaded successfully from: %s" % file_path)
 	return true
 
 func _gather_save_data() -> Dictionary:
@@ -93,85 +94,69 @@ func _apply_save_data(save_data: Dictionary) -> void:
 	if save_data.get("version", -1) != GameConstants.SAVE_FORMAT_VERSION:
 		_report_warning("Save file has different version!")
 	
-	if "time" in save_data:
-		var time_data = save_data["time"]
-		TimeManager.set_time(
-			time_data.get("day", 1),
-			time_data.get("hour", 8),
-			time_data.get("minute", 0)
-		)
-	
-	_debug_log("Save data applied")
+	# TODO: Apply strategic data
+	DebugLogger.log(self.name, "Save data applied")
 
 # ============================================================================
-# SAVE SLOT MANAGEMENT
+# SAVE FILE MANAGEMENT
 # ============================================================================
 
-func get_save_slots() -> Array:
-	var slots = []
+func get_save_files() -> Array:
+	var files: Array = []
 	var dir = DirAccess.open(save_directory)
 	
-	if dir == null:
-		_report_warning("Could not open save directory: %s" % save_directory)
-		return slots
+	if dir:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+		
+		while file_name != "":
+			if file_name.ends_with(".json"):
+				files.append(file_name)
+			file_name = dir.get_next()
 	
-	dir.list_dir_begin()
-	var file_name = dir.get_next()
-	
-	while file_name != "":
-		if file_name.ends_with(".json"):
-			slots.append(file_name)
-		file_name = dir.get_next()
-	
-	return slots
+	DebugLogger.log(self.name, "Found %d save files" % files.size())
+	return files
 
-func delete_save_slot(save_file: String) -> bool:
+func delete_save_file(save_file: String) -> bool:
 	var file_path = save_directory + save_file
+	var result = DirAccess.remove_absolute(file_path)
 	
-	if not FileAccess.file_exists(file_path):
-		_report_warning("Save file not found: %s" % file_path)
-		return false
-	
-	var error = DirAccess.remove_absolute(file_path)
-	
-	if error == OK:
-		_debug_log("Save slot deleted: %s" % save_file)
+	if result == OK:
+		DebugLogger.log(self.name, "Save file deleted: %s" % save_file)
 		return true
 	else:
-		_report_error("Could not delete save slot: %s" % save_file)
+		_report_error("Failed to delete save file: %s" % save_file)
 		return false
 
-func get_save_info(save_file: String) -> Dictionary:
+func save_file_exists(save_file: String) -> bool:
 	var file_path = save_directory + save_file
-	
-	if not FileAccess.file_exists(file_path):
-		return {}
-	
-	var file = FileAccess.open(file_path, FileAccess.READ)
-	var json_string = file.get_as_text()
-	var json = JSON.new()
-	
-	if json.parse(json_string) != OK:
-		return {}
-	
-	var save_data = json.data
-	
-	return {
-		"file": save_file,
-		"save_time": save_data.get("save_time", "Unknown"),
-		"game_state": save_data.get("game_state", -1)
-	}
+	return FileAccess.file_exists(file_path)
 
-func print_all_saves() -> void:
-	if not GameConstants.DEBUG_ENABLED:
-		return
+# ============================================================================
+# DATA EXPORT (für Debug/Mods)
+# ============================================================================
+
+func export_save_to_json(save_file: String, export_path: String) -> bool:
+	if not save_file_exists(save_file):
+		_report_error("Save file does not exist: %s" % save_file)
+		return false
 	
-	var slots = get_save_slots()
+	var file_path = save_directory + save_file
+	var file = FileAccess.open(file_path, FileAccess.READ)
+	var content = file.get_as_text()
 	
-	print("[PersistenceManager] Available Saves:")
-	for slot in slots:
-		var info = get_save_info(slot)
-		print("  - " + info.get("file", "?") + " (Time: " + info.get("save_time", "?") + ")")
+	var export_file = FileAccess.open(export_path, FileAccess.WRITE)
+	if export_file == null:
+		_report_error("Could not open export file: %s" % export_path)
+		return false
+	
+	export_file.store_string(content)
+	DebugLogger.log(self.name, "Save exported to: %s" % export_path)
+	return true
+
+# ============================================================================
+# MANAGER INTERFACE (von IManager)
+# ============================================================================
 
 func on_manager_activate() -> void:
 	super.on_manager_activate()
@@ -182,4 +167,4 @@ func on_manager_deactivate() -> void:
 func on_game_reset() -> void:
 	super.on_game_reset()
 	current_save_data.clear()
-	_debug_log("PersistenceManager reset")
+	DebugLogger.log(self.name, "PersistenceManager reset")

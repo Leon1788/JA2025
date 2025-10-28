@@ -2,6 +2,7 @@
 ## Zentrale Zustandsmaschine für das gesamte Spiel
 ## 
 ## WICHTIG: TODO-Kommentare für fehlende Komponenten!
+## REFAKTORIERT: Alle _debug_log() → DebugLogger.log()
 
 extends IManager
 
@@ -18,7 +19,7 @@ func _ready() -> void:
 	super._ready()
 	self.name = "GameController"
 	current_game_state = GameConstants.GAME_STATE.MAIN_MENU
-	_debug_log("GameController initialized. Starting state: %s" % GameConstants.GAME_STATE.keys()[current_game_state])
+	DebugLogger.log(self.name, "GameController initialized. Starting state: %s" % GameConstants.GAME_STATE.keys()[current_game_state])
 
 func _process(delta: float) -> void:
 	_handle_global_input()
@@ -28,7 +29,7 @@ func _process(delta: float) -> void:
 # ============================================================================
 
 func load_scene(scene_path: String, new_game_state: int) -> void:
-	_debug_log("Loading scene: %s" % scene_path)
+	DebugLogger.log(self.name, "Loading scene: %s" % scene_path)
 	
 	if current_scene != null:
 		_unload_current_scene()
@@ -47,7 +48,7 @@ func load_scene(scene_path: String, new_game_state: int) -> void:
 	current_event_bus = current_scene.get_node_or_null("EventBus")
 	
 	scene_loaded.emit(scene_path)
-	_debug_log("Scene loaded: %s" % scene_path)
+	DebugLogger.log(self.name, "Scene loaded: %s" % scene_path)
 
 func _unload_current_scene() -> void:
 	if current_scene == null:
@@ -59,18 +60,18 @@ func _unload_current_scene() -> void:
 	current_event_bus = null
 	
 	scene_unloaded.emit(scene_name)
-	_debug_log("Scene unloaded: %s" % scene_name)
+	DebugLogger.log(self.name, "Scene unloaded: %s" % scene_name)
 
 # ============================================================================
 # GAME STATE MANAGEMENT
 # ============================================================================
 
 func go_to_main_menu() -> void:
-	_debug_log("Switching to Main Menu")
+	DebugLogger.log(self.name, "Switching to Main Menu")
 	load_scene("res://UI/Common/MainMenu.tscn", GameConstants.GAME_STATE.MAIN_MENU)
 
 func start_new_game() -> void:
-	_debug_log("Starting new game")
+	DebugLogger.log(self.name, "Starting new game")
 	
 	# Reset TimeManager
 	if TimeManager and TimeManager is IManager:
@@ -83,22 +84,22 @@ func start_new_game() -> void:
 	# TODO: Strategic Scene laden:
 	# load_scene("res://Modules/Strategic/StrategicScene.tscn", GameConstants.GAME_STATE.STRATEGIC_MAP)
 	
-	_debug_log("New game started")
+	DebugLogger.log(self.name, "New game started")
 
 func load_game(save_file: String) -> void:
-	_debug_log("Loading game: %s" % save_file)
+	DebugLogger.log(self.name, "Loading game: %s" % save_file)
 	
 	if PersistenceManager.load_game(save_file):
-		_debug_log("Game loaded successfully")
+		DebugLogger.log(self.name, "Game loaded successfully")
 		# TODO: StrategicManager Daten laden
 	else:
 		_report_error("Failed to load game: %s" % save_file)
 
 func save_game(save_file: String) -> void:
-	_debug_log("Saving game: %s" % save_file)
+	DebugLogger.log(self.name, "Saving game: %s" % save_file)
 	
 	if PersistenceManager.save_game(save_file):
-		_debug_log("Game saved successfully")
+		DebugLogger.log(self.name, "Game saved successfully")
 	else:
 		_report_error("Failed to save game: %s" % save_file)
 
@@ -107,7 +108,7 @@ func save_game(save_file: String) -> void:
 # ============================================================================
 
 func start_tactical_combat(combat_data: Dictionary) -> void:
-	_debug_log("Starting tactical combat with map: %s" % combat_data.get("map_id", "unknown"))
+	DebugLogger.log(self.name, "Starting tactical combat with map: %s" % combat_data.get("map_id", "unknown"))
 	
 	# TODO: TacticalManager als AutoLoad hinzufügen und Daten übergeben
 	# if TacticalManager:
@@ -116,14 +117,12 @@ func start_tactical_combat(combat_data: Dictionary) -> void:
 	load_scene("res://Modules/Tactical/TacticalScene.tscn", GameConstants.GAME_STATE.TACTICAL_COMBAT)
 
 func end_tactical_combat(victory: bool) -> void:
-	_debug_log("Ending tactical combat. Victory: %s" % victory)
+	DebugLogger.log(self.name, "Ending tactical combat. Victory: %s" % victory)
 	
-	# TODO: StrategicManager mit Victory-Status updaten
-	# if StrategicManager:
-	#     StrategicManager.on_combat_ended(victory)
+	# TODO: Resultate speichern
+	# TODO: Strategic Scene laden
 	
-	# TODO: Zurück zur Strategic Map
-	# load_scene("res://Modules/Strategic/StrategicScene.tscn", GameConstants.GAME_STATE.STRATEGIC_MAP)
+	go_to_main_menu()
 
 # ============================================================================
 # PAUSE SYSTEM
@@ -135,11 +134,10 @@ func pause_game() -> void:
 	
 	is_game_paused = true
 	get_tree().paused = true
+	DebugLogger.log(self.name, "Game paused")
 	
 	if current_event_bus:
 		current_event_bus.game_paused.emit(true)
-	
-	_debug_log("Game paused")
 
 func unpause_game() -> void:
 	if not is_game_paused:
@@ -147,56 +145,32 @@ func unpause_game() -> void:
 	
 	is_game_paused = false
 	get_tree().paused = false
+	DebugLogger.log(self.name, "Game unpaused")
 	
 	if current_event_bus:
 		current_event_bus.game_paused.emit(false)
-	
-	_debug_log("Game unpaused")
-
-func toggle_pause() -> void:
-	if is_game_paused:
-		unpause_game()
-	else:
-		pause_game()
 
 # ============================================================================
-# GLOBAL INPUT HANDLING
+# INPUT HANDLING
 # ============================================================================
 
 func _handle_global_input() -> void:
-	if Input.is_action_just_pressed("ui_f9"):
-		save_game("quicksave.json")
-	
-	if Input.is_action_just_pressed("ui_f10"):
-		load_game("quicksave.json")
-	
 	if Input.is_action_just_pressed("ui_cancel"):
-		if current_game_state == GameConstants.GAME_STATE.MAIN_MENU:
-			get_tree().quit()
+		if is_game_paused:
+			unpause_game()
 		else:
-			go_to_main_menu()
+			pause_game()
+	
+	if Input.is_action_just_pressed("ui_select"):
+		DebugLogger.log(self.name, "ENTER pressed")
 
 # ============================================================================
-# QUERY FUNCTIONS
+# GAME EXIT
 # ============================================================================
 
-func get_current_game_state() -> int:
-	return current_game_state
-
-func is_in_tactical_combat() -> bool:
-	return current_game_state == GameConstants.GAME_STATE.TACTICAL_COMBAT
-
-func is_on_strategic_map() -> bool:
-	return current_game_state == GameConstants.GAME_STATE.STRATEGIC_MAP
-
-func get_game_state_name() -> String:
-	return GameConstants.GAME_STATE.keys()[current_game_state]
-
-func get_current_scene() -> Node:
-	return current_scene
-
-func get_current_event_bus() -> EventBus:
-	return current_event_bus
+func quit_game() -> void:
+	DebugLogger.log(self.name, "Quitting game")
+	get_tree().quit()
 
 # ============================================================================
 # MANAGER INTERFACE (von IManager)
@@ -204,14 +178,14 @@ func get_current_event_bus() -> EventBus:
 
 func on_manager_activate() -> void:
 	super.on_manager_activate()
-	_debug_log("GameController activated")
+	DebugLogger.log(self.name, "GameController activated")
 
 func on_manager_deactivate() -> void:
 	super.on_manager_deactivate()
-	_debug_log("GameController deactivated")
+	DebugLogger.log(self.name, "GameController deactivated")
 
 func on_game_reset() -> void:
 	super.on_game_reset()
 	current_game_state = GameConstants.GAME_STATE.MAIN_MENU
-	_unload_current_scene()
-	_debug_log("GameController reset")
+	is_game_paused = false
+	DebugLogger.log(self.name, "GameController reset to initial state")
