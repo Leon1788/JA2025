@@ -258,7 +258,19 @@ func player_order_move(unit: MercEntity, target_pos: Vector3) -> bool:
 	var success = await unit.move_to(target_pos)
 	
 	if success:
-		unit_acted.emit(unit, "move")
+		# NUTZE InterruptSystem!
+		var interrupters = InterruptSystem.get_potential_interrupters(
+			enemy_units,
+			unit,
+			"visual"
+		)
+		
+		# Sortiere nach Priorität
+		var sorted = InterruptSystem.sort_by_priority(interrupters, unit.global_position)
+		
+		# Erste schießt
+		if sorted.size() > 0:
+			InterruptSystem.execute_interrupt_shot(sorted[0], unit, self)
 	
 	return success
 
@@ -275,10 +287,16 @@ func player_order_shoot(unit: MercEntity, target: MercEntity) -> bool:
 	var success = await unit.shoot(target)
 	
 	if success:
-		unit_acted.emit(unit, "shoot")
+		# NUTZE InterruptSystem!
+		var interrupters = InterruptSystem.get_potential_interrupters(
+			enemy_units,
+			unit,
+			"visual"
+		)
 		
-		# Prüfe auf Interrupt
-		_check_interrupt(unit, target)
+		if interrupters.size() > 0:
+			var sorted = InterruptSystem.sort_by_priority(interrupters, unit.global_position)
+			InterruptSystem.execute_interrupt_shot(sorted[0], unit, self)
 	
 	return success
 
