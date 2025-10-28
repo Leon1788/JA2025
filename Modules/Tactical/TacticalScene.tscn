@@ -1,0 +1,15 @@
+[gd_scene load_steps=2 format=3 uid="uid://r2y244jqhtp"]
+
+[ext_resource type="Script" uid="uid://ib0r45na3rh5" path="res://Modules/Tactical/TacticalScene.gd" id="1_tactical"]
+
+[node name="TacticalScene" type="Node3D"]
+script = ExtResource("1_tactical")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.877583, 0.479426, 0, -0.479426, 0.877583, 0, 0, 0)
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(0.707106, 0.353555, -0.612373, 0, 0.866025, 0.500001, 0.707108, -0.353554, 0.612371, 80, 60, 80)
+fov = 50.0
