@@ -1,11 +1,11 @@
-# res://Modules/Tactical/TacticalScene.gd
-## Root Script für Taktisches Kampf-Szenario
+# res://Modules/Tactical/TacticalScene.gd (REFACTORED)
+## Root Scene für Taktischen Kampf
 ##
 ## Verantwortlichkeiten:
-## - Scene Setup
-## - TacticalManager Instantiation
-## - EventBus Creation (Local)
-## - UI Initialization
+## - Scene Setup & Initialization
+## - TacticalManager Koordination
+## - Test Combat Setup
+## - Debug Input Handling
 
 class_name TacticalScene extends Node3D
 
@@ -15,68 +15,59 @@ class_name TacticalScene extends Node3D
 
 var tactical_manager: TacticalManager = null
 var event_bus: EventBus = null
+var grid_visualizer: GridVisualizer = null
 
 var player_mercs: Array = []
 var enemy_mercs: Array = []
 
-var test_combat_data: Dictionary = {}
 var combat_started: bool = false
+var selected_unit: MercEntity = null
 
 # ============================================================================
 # LIFECYCLE
 # ============================================================================
 
 func _ready() -> void:
-	_debug_log("TacticalScene starting...")
+	DebugLogger.log("TacticalScene", "Starting...")
 	
-	# Erstelle lokalen EventBus
+	# Erstelle EventBus (lokal für diese Scene)
 	_create_event_bus()
 	
-	# Registriere bei GameController
+	# Registriere bei GlobalController
 	GameController.current_event_bus = event_bus
 	
 	# Erstelle TacticalManager
 	_create_tactical_manager()
 	
-	# Setup Test-Combat (für Phase 4 Testing)
+	# Setup Test Combat
 	_setup_test_combat()
 	
-	_debug_log("TacticalScene ready!")
-	_debug_log("Drücke E zum Kampf starten!")
+	# Erstelle Grid Visualizer (für Debug)
+	_create_grid_visualizer()
+	
+	# Setup Input Handling
+	_setup_input()
+	
+	_print_instructions()
+	
+	DebugLogger.log("TacticalScene", "Ready!")
 
 func _process(delta: float) -> void:
-	# DEBUG: Drücke E zum Kampf Starten
-	if Input.is_key_pressed(KEY_E) and not combat_started:
-		_debug_log("Starting combat!")
-		_start_test_combat()
-		combat_started = true
-	
-	# DEBUG: Drücke SPACE zum Turn Ende
-	if Input.is_key_pressed(KEY_SPACE) and tactical_manager and tactical_manager.is_player_acting():
-		_debug_log("Ending player turn!")
-		tactical_manager.end_actor_turn()
+	_handle_debug_input()
 
 # ============================================================================
-# EVENT BUS
+# SCENE CREATION
 # ============================================================================
 
-## Erstelle lokalen EventBus für diese Scene
+## Erstelle lokalen EventBus
 func _create_event_bus() -> void:
 	event_bus = EventBus.new()
 	event_bus.name = "EventBus"
 	add_child(event_bus)
 	
-	# Verbinde Signals
-	event_bus.turn_started.connect(_on_turn_started)
-	event_bus.turn_ended.connect(_on_turn_ended)
-	
-	_debug_log("EventBus created (local)")
+	DebugLogger.log("TacticalScene", "EventBus created (local)")
 
-# ============================================================================
-# TACTICAL MANAGER
-# ============================================================================
-
-## Erstelle und konfiguriere TacticalManager
+## Erstelle TacticalManager
 func _create_tactical_manager() -> void:
 	tactical_manager = TacticalManager.new()
 	tactical_manager.name = "TacticalManager"
@@ -85,52 +76,68 @@ func _create_tactical_manager() -> void:
 	# Verbinde Signals
 	tactical_manager.combat_started.connect(_on_combat_started)
 	tactical_manager.combat_ended.connect(_on_combat_ended)
-	tactical_manager.turn_started.connect(_on_turn_started)
-	tactical_manager.turn_ended.connect(_on_turn_ended)
-	tactical_manager.interrupt_triggered.connect(_on_interrupt)
 	
-	_debug_log("TacticalManager created")
+	DebugLogger.log("TacticalScene", "TacticalManager created")
+
+## Erstelle Grid Visualizer (Debug-Gitter)
+func _create_grid_visualizer() -> void:
+	grid_visualizer = GridVisualizer.new()
+	grid_visualizer.name = "GridVisualizer"
+	add_child(grid_visualizer)
+	
+	DebugLogger.log("TacticalScene", "GridVisualizer created")
+
+## Setup Input Actions
+func _setup_input() -> void:
+	# InputMap prüfen und erstellen falls nötig
+	if not InputMap.has_action("left_click"):
+		InputMap.add_action("left_click")
+		InputMap.action_add_event("left_click", InputEventMouseButton.new())
+	
+	if not InputMap.has_action("right_click"):
+		InputMap.add_action("right_click")
+		InputMap.action_add_event("right_click", InputEventMouseButton.new())
 
 # ============================================================================
-# SCENE SETUP
+# TEST COMBAT SETUP
 # ============================================================================
 
-## Initialisiere Test-Kampf (für Phase 4 Demo)
+## Initialisiere Test Combat
 func _setup_test_combat() -> void:
-	_debug_log("Setting up test combat...")
+	DebugLogger.log("TacticalScene", "Setting up test combat...")
 	
-	# Erstelle Player Mercs
-	player_mercs = []
+	# Erstelle 2 Player Mercs
 	for i in range(2):
 		var merc = _create_test_merc("Player", i, "player")
 		player_mercs.append(merc)
 		add_child(merc)
 	
-	# Erstelle Enemy Mercs
-	enemy_mercs = []
+	# Erstelle 2 Enemy Mercs
 	for i in range(2):
 		var merc = _create_test_merc("Enemy", i, "enemy")
 		enemy_mercs.append(merc)
 		add_child(merc)
 	
-	_debug_log("Test mercs created. Ready to start!")
+	DebugLogger.log("TacticalScene", "Test mercs created: %d player, %d enemy" % [player_mercs.size(), enemy_mercs.size()])
 
-## Erstelle Test-Merc
+## Erstelle einen Test-Merc
 func _create_test_merc(faction_name: String, index: int, faction: String) -> MercEntity:
 	# Lade Scene
 	var merc_scene = load("res://Modules/Tactical/Entities/MercEntity.tscn")
 	var merc = merc_scene.instantiate() as MercEntity
 	
-	# Konfiguriere
+	# Basis-Daten
 	merc.merc_id = "%s_%d" % [faction_name.to_lower(), index]
 	merc.merc_name = "%s %d" % [faction_name, index + 1]
 	merc.faction = faction
-	merc.agility = 50 + randi() % 30
-	merc.marksmanship = 50 + randi() % 30
-	merc.wisdom = 50 + randi() % 30
-	merc.strength = 50 + randi() % 30
 	
-	# Initialisiere mit Profil
+	# Randomize Stats (aber sinnvoll)
+	merc.agility = 45 + randi() % 40  # 45-85
+	merc.marksmanship = 45 + randi() % 40
+	merc.wisdom = 45 + randi() % 40
+	merc.strength = 45 + randi() % 40
+	
+	# Profil-Daten
 	var profile = {
 		"id": merc.merc_id,
 		"name": merc.merc_name,
@@ -144,9 +151,9 @@ func _create_test_merc(faction_name: String, index: int, faction: String) -> Mer
 		"model_path": "",
 		"starting_weapon": {
 			"id": "rifle_test",
-			"name": "Test Rifle",
-			"damage_min": 15,
-			"damage_max": 35,
+			"name": "Assault Rifle",
+			"damage_min": 18,
+			"damage_max": 38,
 			"magazine_size": 30,
 			"ammo": 30,
 			"condition": 100,
@@ -157,98 +164,231 @@ func _create_test_merc(faction_name: String, index: int, faction: String) -> Mer
 	
 	merc.setup_from_profile(profile)
 	
-	_debug_log("Created test merc: %s (%s)" % [merc.merc_name, merc.faction])
 	return merc
+
+# ============================================================================
+# COMBAT CONTROL
+# ============================================================================
 
 ## Starte Test-Kampf
 func _start_test_combat() -> void:
-	_debug_log("Starting test combat!")
-	tactical_manager.start_combat(player_mercs, enemy_mercs)
+	if combat_started:
+		DebugLogger.warn("TacticalScene", "Combat already started!")
+		return
+	
+	DebugLogger.log("TacticalScene", "Starting test combat!")
+	tactical_manager.start_combat(player_mercs, enemy_mercs, event_bus)
+	combat_started = true
 
 # ============================================================================
 # EVENT HANDLERS
 # ============================================================================
 
 func _on_combat_started() -> void:
-	_debug_log("Combat started!")
+	DebugLogger.log("TacticalScene", "Combat started event!")
 	event_bus.combat_started.emit({})
 
 func _on_combat_ended(victory: bool) -> void:
-	_debug_log("Combat ended! Victory: %s" % ("YES" if victory else "NO"))
+	DebugLogger.log("TacticalScene", "Combat ended! Victory: %s" % ("YES" if victory else "NO"))
 	event_bus.combat_ended.emit(victory)
+	combat_started = false
 
-func _on_turn_started(actor: MercEntity) -> void:
-	_debug_log("Turn started: %s (Faction: %s)" % [actor.merc_name, actor.faction])
-	event_bus.turn_started.emit(GameConstants.TURN_STATE.PLAYER_TURN, actor)
+# ============================================================================
+# DEBUG INPUT HANDLING
+# ============================================================================
 
-func _on_turn_ended() -> void:
-	_debug_log("Turn ended")
-	event_bus.turn_ended.emit()
+func _handle_debug_input() -> void:
+	# E - Starte Kampf
+	if Input.is_action_just_pressed("ui_select") and not combat_started:
+		_start_test_combat()
+	
+	# SPACE - Beende Turn
+	if Input.is_action_just_pressed("ui_accept") and combat_started:
+		if tactical_manager.is_player_turn():
+			DebugLogger.log("TacticalScene", "Ending player turn...")
+			tactical_manager.player_end_turn()
+	
+	# 1-4 - Wähle Unit (Player mercs)
+	if Input.is_action_just_pressed("ui_1") and combat_started:
+		_select_unit(0)
+	if Input.is_action_just_pressed("ui_2") and combat_started:
+		_select_unit(1)
+	if Input.is_action_just_pressed("ui_3") and combat_started:
+		_select_unit(2)
+	if Input.is_action_just_pressed("ui_4") and combat_started:
+		_select_unit(3)
+	
+	# M - Print Debug Info
+	if Input.is_action_just_pressed("ui_cancel"):
+		print(tactical_manager.get_debug_info())
+	
+	# G - Toggle Grid (wurde schon in GridVisualizer gemacht, aber doppelt ok)
+	if Input.is_key_pressed(KEY_G):
+		if grid_visualizer:
+			grid_visualizer.is_visible = not grid_visualizer.is_visible
+	
+	# Mouse Click - Bewege Unit
+	if Input.is_action_just_pressed("left_click") and combat_started and tactical_manager.is_player_turn():
+		_handle_left_click()
+	
+	# Right Click - Schießen
+	if Input.is_action_just_pressed("right_click") and combat_started and tactical_manager.is_player_turn():
+		_handle_right_click()
 
-func _on_interrupt(interrupter: MercEntity, target: MercEntity) -> void:
-	_debug_log("Interrupt! %s interrupts %s" % [interrupter.merc_name, target.merc_name])
-	event_bus.interrupt_triggered.emit(interrupter, target)
+## Linker Click - Bewegung
+func _handle_left_click() -> void:
+	if selected_unit == null:
+		DebugLogger.log("TacticalScene", "No unit selected. Press 1-4 to select unit.")
+		return
+	
+	# Berechne World Position unter Maus
+	var mouse_pos = get_viewport().get_mouse_position()
+	var camera = get_viewport().get_camera_3d()
+	
+	if camera == null:
+		return
+	
+	var ray = camera.project_ray_normal(mouse_pos)
+	var plane = Plane(Vector3.UP, 0)  # Boden Plane
+	var intersection = plane.intersects_ray(camera.global_position, ray)
+	
+	if intersection == null:
+		DebugLogger.log("TacticalScene", "Could not calculate world position")
+		return
+	
+	var target_pos = intersection as Vector3
+	
+	DebugLogger.log("TacticalScene", "Moving %s to %v" % [selected_unit.merc_name, target_pos])
+	
+	var success = await tactical_manager.player_move_unit(target_pos)
+	
+	if success:
+		DebugLogger.log("TacticalScene", "Movement successful!")
+	else:
+		DebugLogger.warn("TacticalScene", "Movement failed!")
+
+## Rechter Click - Schießen
+func _handle_right_click() -> void:
+	if selected_unit == null:
+		DebugLogger.log("TacticalScene", "No unit selected. Press 1-4 to select unit.")
+		return
+	
+	# Finde nächsten feindlichen Unit zum Schießen
+	var target = _find_nearest_enemy_from(selected_unit)
+	
+	if target == null:
+		DebugLogger.warn("TacticalScene", "No visible target!")
+		return
+	
+	DebugLogger.log("TacticalScene", "%s shoots at %s" % [selected_unit.merc_name, target.merc_name])
+	
+	var success = await tactical_manager.player_shoot_unit(target)
+	
+	if success:
+		DebugLogger.log("TacticalScene", "Shot fired!")
+	else:
+		DebugLogger.warn("TacticalScene", "Shot failed!")
+
+## Wähle Unit
+func _select_unit(index: int) -> void:
+	if index >= player_mercs.size():
+		DebugLogger.warn("TacticalScene", "Unit %d does not exist!" % (index + 1))
+		return
+	
+	selected_unit = player_mercs[index]
+	DebugLogger.log("TacticalScene", "Selected: %s (HP: %d, AP: %d)" % [
+		selected_unit.merc_name,
+		selected_unit.get_current_hp(),
+		selected_unit.get_current_ap()
+	])
+
+## Finde nächsten Enemy
+func _find_nearest_enemy_from(unit: MercEntity) -> MercEntity:
+	var nearest = null
+	var nearest_distance = INF
+	
+	for enemy in enemy_mercs:
+		if not enemy.is_alive():
+			continue
+		
+		# Prüfe ob sichtbar
+		var vision = unit.get_component("VisionComponent") as VisionComponent
+		if vision and not vision.can_see(enemy):
+			continue
+		
+		var distance = unit.global_position.distance_to(enemy.global_position)
+		if distance < nearest_distance:
+			nearest = enemy
+			nearest_distance = distance
+	
+	return nearest
 
 # ============================================================================
 # PUBLIC INTERFACE
 # ============================================================================
 
-## Spieler befiehlt Unit, zu bewegen
-func player_move_unit(unit: MercEntity, target_pos: Vector3) -> bool:
-	if tactical_manager == null:
-		return false
-	
-	return await tactical_manager.player_order_move(unit, target_pos)
-
-## Spieler befiehlt Unit, zu schießen
-func player_shoot_unit(unit: MercEntity, target: MercEntity) -> bool:
-	if tactical_manager == null:
-		return false
-	
-	return await tactical_manager.player_order_shoot(unit, target)
-
-## Beende aktuellen Turn
-func end_current_turn() -> void:
-	if tactical_manager == null:
-		return
-	
-	tactical_manager.end_actor_turn()
-
-## Gib TacticalManager zurück
 func get_tactical_manager() -> TacticalManager:
 	return tactical_manager
 
-## Gib EventBus zurück
 func get_event_bus() -> EventBus:
 	return event_bus
 
 # ============================================================================
-# DEBUG
+# HELPER FUNCTIONS
 # ============================================================================
 
-func _debug_log(message: String) -> void:
-	if GameConstants.DEBUG_ENABLED:
-		print("[TacticalScene] " + message)
+## Print Anleitung
+func _print_instructions() -> void:
+	print("\n" + "=".repeat(60))
+	print("🎮 TACTICAL SCENE - DEBUG CONTROLS")
+	print("=".repeat(60))
+	print("\n📋 COMBAT:")
+	print("  E           - Start combat")
+	print("  SPACE       - End turn")
+	print("\n👤 UNIT SELECTION:")
+	print("  1-4         - Select player unit 1-4")
+	print("\n⚔️  ACTIONS:")
+	print("  LEFT CLICK  - Move selected unit to position")
+	print("  RIGHT CLICK - Shoot nearest visible enemy")
+	print("\n🔧 DEBUG:")
+	print("  G           - Toggle grid visualization")
+	print("  M           - Print debug info")
+	print("  ESC         - Print this menu again")
+	print("\n" + "=".repeat(60) + "\n")
 
-func print_scene_debug() -> void:
-	print("\n=== TacticalScene Debug ===")
-	print("Tactical Manager: %s" % tactical_manager.get_debug_info())
-	print("Player Units: %d" % player_mercs.size())
+# ============================================================================
+# FINAL STATS / END GAME
+# ============================================================================
+
+## Drucke Kampf-Statistik
+func print_combat_stats() -> void:
+	print("\n" + "=".repeat(60))
+	print("📊 COMBAT STATISTICS")
+	print("=".repeat(60))
+	
+	print("\n🔵 PLAYER UNITS:")
 	for unit in player_mercs:
-		print("  - %s (HP: %d/%d, AP: %d/%d)" % [
+		var status = "ALIVE" if unit.is_alive() else "DEAD"
+		var soldier_state = unit.get_component("SoldierState") as SoldierState
+		print("  %s: HP %d/%d | %s" % [
 			unit.merc_name,
 			unit.get_current_hp(),
-			unit.get_soldier_state().max_hp,
-			unit.get_current_ap(),
-			unit.get_soldier_state().max_ap
+			soldier_state.max_hp if soldier_state else 100,
+			status
 		])
-	print("Enemy Units: %d" % enemy_mercs.size())
+	
+	print("\n🔴 ENEMY UNITS:")
 	for unit in enemy_mercs:
-		print("  - %s (HP: %d/%d, AP: %d/%d)" % [
+		var status = "ALIVE" if unit.is_alive() else "DEAD"
+		var soldier_state = unit.get_component("SoldierState") as SoldierState
+		print("  %s: HP %d/%d | %s" % [
 			unit.merc_name,
 			unit.get_current_hp(),
-			unit.get_soldier_state().max_hp,
-			unit.get_current_ap(),
-			unit.get_soldier_state().max_ap
+			soldier_state.max_hp if soldier_state else 100,
+			status
 		])
-	print("========================\n")
+	
+	if tactical_manager:
+		print("\n" + tactical_manager.get_debug_info())
+	
+	print("\n" + "=".repeat(60) + "\n")
