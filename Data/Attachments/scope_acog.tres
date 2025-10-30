@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="AttachmentResource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Architecture/Resources/AttachmentResource.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "scope_acog"
+attachment_name = "ACOG Scope (4x)"
+description = "4x Zielfernrohr. Verbessert Genauigkeit, erhöht aber AP-Kosten leicht."
+stat_modifiers = {
+"accuracy_bonus": 0.15,
+"ap_cost_modifier": 1.1
+}
+compatible_slots = PackedStringArray("scope")
+compatible_weapons = PackedStringArray()

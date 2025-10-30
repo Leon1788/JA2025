@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="MercProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Architecture/Resources/MercProfile.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "merc_ivan"
+merc_name = "Ivan Dolvich"
+faction = "player"
+bio = "Russischer Ex-Spetsnaz. Legendärer Scharfschütze mit eiserner Disziplin."
+health = 80
+agility = 85
+dexterity = 75
+strength = 75
+wisdom = 70
+leadership = 60
+marksmanship = 88
+medical = 25
+explosives = 30
+mechanical = 40
+model_path = "res://Assets/Models/merc_placeholder.gltf"
+starting_weapon_id = "m16_rifle"
+starting_armor_id = "flak_jacket"
+starting_inventory = PackedStringArray("scope_acog")

@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="WeaponResource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Architecture/Resources/WeaponResource.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "m16_rifle"
+weapon_name = "M16 Rifle"
+description = "Standard-Sturmgewehr mit hoher Reichweite und guter Präzision."
+weapon_type = "rifle"
+damage_min = 22
+damage_max = 38
+accuracy = 0.85
+recoil_base = 1.5
+magazine_size = 30
+ammo_type = "standard"
+ap_cost_single = 5
+ap_cost_burst = 7
+ap_cost_auto = 11
+ap_cost_reload = 6
+effective_range = 50.0
+sound_radius_base = 50.0
+attachment_slots = PackedStringArray("scope", "muzzle", "underbarrel")

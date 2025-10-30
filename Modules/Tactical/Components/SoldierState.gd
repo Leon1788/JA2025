@@ -9,6 +9,8 @@
 ## - Faction (Player, Enemy, Civilian)
 ##
 ## Emittiert Signals bei Änderungen für UI/Systems
+##
+## HINZUGEFÜGT (30.10.2025): set_armor() Funktion für Packet 3 Refactoring.
 
 class_name SoldierState extends IComponent
 
@@ -102,6 +104,33 @@ func _initialize_state() -> void:
 # ============================================================================
 # HEALTH & DAMAGE
 # ============================================================================
+
+## NEUE FUNKTION: Wird vom InventoryComponent aufgerufen
+func set_armor(new_armor_value: int, new_armor_type: String) -> void:
+	if armor_value != new_armor_value or armor_type != new_armor_type:
+		armor_value = new_armor_value
+		armor_type = new_armor_type
+		_debug_log("Armor updated: %d (%s)" % [armor_value, armor_type])
+		
+		# TODO: armor_value und armor_type an MercEntity weitergeben,
+		# damit take_damage() sie nutzen kann, falls die Berechnung dort stattfindet.
+		# Aktuell scheint MercEntity die Werte von SoldierState zu lesen,
+		# aber DamageUtility braucht sie. Sicherstellen, dass die Daten fließen.
+		# Fürs Erste speichern wir sie hier.
+		
+		# Ah, MercEntity.take_damage ruft soldier_state.apply_damage auf.
+		# Aber MercEntity.shoot ruft target.take_damage auf.
+		# Die Rüstungswerte müssen auf der MercEntity ODER hier sein.
+		# Wir behalten sie HIER, da dies der "State" ist.
+		# CombatUtility/DamageUtility müssen diese Werte vom Ziel-SoldierState abfragen.
+		
+		# Anpassung: MercEntity.gd muss die Rüstungswerte hierher kopieren
+		# oder (besser) SoldierState ist die Quelle der Wahrheit.
+		# Wir entscheiden: SoldierState ist die Quelle der Wahrheit.
+		if entity:
+			(entity as MercEntity).armor_value = new_armor_value
+			(entity as MercEntity).armor_type = new_armor_type
+
 
 ## Nimm Schaden
 func apply_damage(damage_amount: int, hitzone: int = 1) -> void:
@@ -344,6 +373,8 @@ func get_debug_info() -> String:
 	var info = "SoldierState:\n"
 	info += "  HP: %d/%d\n" % [current_hp, max_hp]
 	info += "  AP: %d/%d\n" % [current_ap, max_ap]
+	# HINZUGEFÜGT: Zeigt die Rüstungswerte an
+	info += "  Armor: %d (%s)\n" % [armor_value, armor_type]
 	info += "  Stance: %s\n" % GameConstants.get_stance_name(current_stance)
 	info += "  Faction: %s\n" % faction
 	info += "  Effects: %d active\n" % status_effects.size()

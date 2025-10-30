@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="WeaponResource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Architecture/Resources/WeaponResource.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "m9_pistol"
+weapon_name = "M9 Pistol"
+description = "Zuverlässige Seitenwaffe mit niedriger AP-Kosten."
+weapon_type = "pistol"
+damage_min = 12
+damage_max = 24
+accuracy = 0.75
+recoil_base = 0.8
+magazine_size = 15
+ammo_type = "standard"
+ap_cost_single = 4
+ap_cost_burst = 6
+ap_cost_auto = 8
+ap_cost_reload = 4
+effective_range = 20.0
+sound_radius_base = 30.0
+attachment_slots = PackedStringArray("muzzle")
